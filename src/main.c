@@ -1860,6 +1860,57 @@ void set_menu_xy(GtkMenu *menu, gint *x, gint *y, gboolean *push, gpointer user_
 \n\b Returns:
 ****************************************************************************/
 
+static gboolean position_history_tooltip(GtkWidget *popup, GdkEvent *event, gpointer data)
+{
+  GtkWidget *item = GTK_WIDGET(data);
+  GtkWidget *menu = gtk_widget_get_parent(item);
+  GtkAllocation row, menu_size;
+  GtkRequisition size;
+  GdkRectangle monitor;
+  gint x, y, menu_x, menu_y;
+
+  gtk_widget_get_allocation(item, &row);
+  gtk_widget_get_allocation(menu, &menu_size);
+  gdk_window_get_origin(gtk_widget_get_window(menu), &menu_x, &menu_y);
+  gtk_widget_size_request(popup, &size);
+  GdkScreen *screen = gtk_widget_get_screen(item);
+  gint monitor_no = gdk_screen_get_monitor_at_window(screen, gtk_widget_get_window(menu));
+  gdk_screen_get_monitor_geometry(screen, monitor_no, &monitor);
+  x = menu_x + menu_size.width + 1;
+  if(x + size.width > monitor.x + monitor.width)
+    x = menu_x - size.width - 1;
+  y = menu_y + row.y;
+  x = MAX(monitor.x, MIN(x, monitor.x + monitor.width - size.width));
+  y = MAX(monitor.y, MIN(y, monitor.y + monitor.height - size.height));
+  gtk_window_move(GTK_WINDOW(popup), x, y);
+  return FALSE;
+}
+
+static void set_history_tooltip(GtkWidget *item, const gchar *text)
+{
+  gchar *preview = g_strchomp(g_strdup(text));
+  GtkWidget *popup = gtk_window_new(GTK_WINDOW_POPUP);
+  GtkWidget *label = gtk_label_new(preview);
+  GtkWidget *box = gtk_hbox_new(FALSE, 0);
+  gtk_widget_set_name(popup, "gtk-tooltip");
+  gtk_window_set_type_hint(GTK_WINDOW(popup), GDK_WINDOW_TYPE_HINT_TOOLTIP);
+  gtk_window_set_accept_focus(GTK_WINDOW(popup), FALSE);
+  gtk_window_set_resizable(GTK_WINDOW(popup), FALSE);
+  gtk_container_set_border_width(GTK_CONTAINER(popup), 1);
+  gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+  gtk_label_set_line_wrap_mode(GTK_LABEL(label), PANGO_WRAP_WORD_CHAR);
+  gtk_misc_set_alignment(GTK_MISC(label), 0, 0);
+  gtk_misc_set_padding(GTK_MISC(label), 0, 0);
+  gtk_container_add(GTK_CONTAINER(popup), box);
+  gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
+  gtk_widget_show_all(box);
+  gtk_widget_set_tooltip_text(item, preview);
+  gtk_widget_set_tooltip_window(item, GTK_WINDOW(popup));
+  g_signal_connect(popup, "map-event", G_CALLBACK(position_history_tooltip), item);
+  g_signal_connect_swapped(item, "destroy", G_CALLBACK(gtk_widget_destroy), popup);
+  g_free(preview);
+}
+
 static gboolean show_history_menu(gpointer data)
 {
   /* Declare some variables */
@@ -1972,7 +2023,7 @@ static gboolean show_history_menu(gpointer data)
 			
       /* Make new item with ellipsized text */
       menu_item = gtk_menu_item_new_with_label(string->str);
-			gtk_widget_set_tooltip_text(menu_item, hist_text);
+			set_history_tooltip(menu_item, hist_text);
 		
   		g_signal_connect((GObject*)menu_item,      "event",
                        (GCallback)my_item_event, GINT_TO_POINTER(element_number));
