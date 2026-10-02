@@ -1662,13 +1662,12 @@ void set_clipboard_text(struct history_info *h, GList *element)
 		return;
 	/*g_printf("set_clip_text done\n");  */
 	
-	if (get_pref_int32("automatic_paste")) { /** mousedown 2 */
+	if (get_pref_int32("automatic_paste")) { /** auto paste */
 		if(get_pref_int32("auto_mouse"))
-			action=g_strdup("mousedown 2 && xdotool mouseup 2'");
+			action=g_strdup("click --clearmodifiers 2'");
 		else if(get_pref_int32("auto_key"))
-			action=g_strdup("key ctrl+v'");
-	
-	
+			action=g_strdup("key --clearmodifiers ctrl+v'");
+
 		if( get_pref_int32("key_input")) {
 			gchar *xtxt;
 			int i, e, sl=strlen(txt);
@@ -1676,7 +1675,7 @@ void set_clipboard_text(struct history_info *h, GList *element)
 				if( 0x27 == txt[i] || 0x22 == txt[i])
 					++e;
 			}
-				
+
 			if(NULL == (xtxt=malloc(sl+e+2)))
 				goto done; /**system is likely about to die...  */
 			for (i=e=0; i<sl; ++i){
@@ -1685,21 +1684,26 @@ void set_clipboard_text(struct history_info *h, GList *element)
 			  xtxt[e++]=txt[i];
 			}
 			xtxt[e]=0;
-			/*action=g_strconcat("type \"",xtxt,"\"'",NULL); */
 			action=g_strconcat("txt=",xtxt,NULL);
 			free(xtxt);
 		}
-	}	
-		
+	}
+
 	if(NULL == action)
 			goto done;
-	if(NULL == environ)
-		goto done;
-	env=get_environment(action);
-	if(NULL == env)
-		goto done;
-/*  cmd = g_strconcat("/bin/sh -c 'xdotool ", action, NULL); */
-	cmd = g_strconcat("/bin/sh -c 'xdotool type \"$txt\"'", NULL);
+
+	if( get_pref_int32("key_input")) {
+		if(NULL == environ)
+			goto done;
+		env=get_environment(action);  /* action is: txt=... */
+		if(NULL == env)
+			goto done;
+		cmd = g_strconcat("/bin/sh -c 'sleep 0.20; xdotool type --clearmodifiers \"$txt\"'", NULL);
+	} else {
+		env = NULL; /* inherit normal environment */
+		cmd = g_strconcat("/bin/sh -c 'sleep 0.20; xdotool ", action, NULL);
+	}
+
 /*	g_fprintf(stderr,"xdotool:#%s#\ntext:#%s#\n",cmd,txt);  */
   GPid pid;
   gchar **argv;
