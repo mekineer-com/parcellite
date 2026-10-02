@@ -1972,6 +1972,7 @@ static gboolean show_history_menu(gpointer data)
 			
       /* Make new item with ellipsized text */
       menu_item = gtk_menu_item_new_with_label(string->str);
+			gtk_widget_set_tooltip_text(menu_item, hist_text);
 		
   		g_signal_connect((GObject*)menu_item,      "event",
                        (GCallback)my_item_event, GINT_TO_POINTER(element_number));
