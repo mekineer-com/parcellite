@@ -1867,7 +1867,7 @@ static gboolean show_history_tooltip(gpointer data)
   GtkWidget *label = g_object_get_data(G_OBJECT(popup), "history-label");
   GtkRequisition size;
   GdkRectangle monitor;
-  gint x, y, pointer_x, pointer_y, below, above, height;
+  gint x, y, pointer_x, pointer_y, below, above, width, height;
   GdkDisplay *display = gtk_widget_get_display(item);
   GdkScreen *screen;
 
@@ -1882,7 +1882,6 @@ static gboolean show_history_tooltip(gpointer data)
   above = MAX(0, pointer_y - monitor.y - 1);
   /* Cap the preview, never the saved clip, and leave the pointer uncovered. */
   gtk_label_set_text(GTK_LABEL(label), g_object_get_data(G_OBJECT(label), "full-preview"));
-  gtk_widget_set_size_request(label, MIN(600, monitor.width - 6), -1);
   PangoLayout *layout = gtk_widget_create_pango_layout(label, gtk_label_get_text(GTK_LABEL(label)));
   pango_layout_set_wrap(layout, PANGO_WRAP_WORD_CHAR);
   pango_layout_set_width(layout, MIN(600, monitor.width - 6) * PANGO_SCALE);
@@ -1907,9 +1906,9 @@ static gboolean show_history_tooltip(gpointer data)
     g_free(shortened);
     g_free(prefix);
   }
-  pango_layout_get_pixel_size(layout, NULL, &height);
+  pango_layout_get_pixel_size(layout, &width, &height);
   g_object_unref(layout);
-  gtk_widget_set_size_request(label, MIN(600, monitor.width - 6),
+  gtk_widget_set_size_request(label, MIN(width, monitor.width - 6),
                              MAX(1, MIN(height, MAX(below, above) - 6)));
   gtk_widget_size_request(popup, &size);
   if(y + size.height > monitor.y + monitor.height)

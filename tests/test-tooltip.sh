@@ -37,6 +37,8 @@ Path(sys.argv[1]).write_text('FULL_CLIP_START <b>literal markup</b> & "quotes"\n
 if sys.argv[2] == 'large':
     Path(sys.argv[1]).write_text('FULL_CLIP_START\n' + 'Synthetic caf\u00e9 / \u65e5\u672c\u8a9e / \U0001f642 ' * 20
                                + '\n' + 'Large preview line\n' * 200 + 'FULL_CLIP_END\n')
+elif sys.argv[2] == 'short':
+    Path(sys.argv[1]).write_text('Short preview\nTiny')
 PY
 Xvfb -displayfd 3 -screen 0 1024x768x24 -nolisten tcp 3> "$tmp/display" > "$tmp/xvfb.log" 2>&1 &
 xvfb=$!
@@ -76,7 +78,10 @@ awk -F= -v py="$cursor_y" '/^X=/{if ($2 != 80) exit 1} /^Y=/{y=$2} /^HEIGHT=/{h=
          END {if (y<=py && y+h>py) exit 1}' "$tmp/geometry-before"
 awk -F= '/^X=/{x=$2} /^Y=/{y=$2} /^WIDTH=/{w=$2} /^HEIGHT=/{h=$2}
          END {if (x<0 || y<0 || x+w>1024 || y+h>768) exit 1}' "$tmp/geometry-before"
-for point in "83 $cursor_y" "300 $((cursor_y+6))" "$right $((cursor_y+10))" "80 $cursor_y"; do
+if test "${PREVIEW_CASE:-normal}" = short; then
+    awk -F= '/^WIDTH=/{if ($2 >= 200) exit 1}' "$tmp/geometry-before"
+fi
+for point in "83 $cursor_y" "$(( (80+right)/2 )) $((cursor_y+6))" "$right $((cursor_y+10))" "80 $cursor_y"; do
     xdotool mousemove $point
     sleep 0.8
     xwininfo -id "$tip" | grep -q 'Map State: IsViewable'
