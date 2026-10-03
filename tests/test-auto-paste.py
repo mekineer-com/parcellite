@@ -94,7 +94,7 @@ with tempfile.TemporaryDirectory(prefix='parcellite-paste-test-') as directory:
     assert run(1, 'clipboard paste') == ['key', '--clearmodifiers', 'ctrl+v']
     assert run(2, 'primary paste') == ['click', '--clearmodifiers', '2']
     for mode in (1, 2):
-        (root / 'args').unlink()
+        (root / 'args').unlink(missing_ok=True)
         payload.write_text('must not paste stale clipboard text')
         blocked = subprocess.run([str(root / 'fixture'), str(payload), str(mode), 'disabled'],
                                  env=env, text=True, capture_output=True, timeout=5)
