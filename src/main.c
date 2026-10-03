@@ -1905,6 +1905,13 @@ static gboolean show_history_tooltip(gpointer data)
   /* Sample once at appearance, so movement within the row cannot move it. */
   gdk_display_get_pointer(display, &screen, &pointer_x, &pointer_y, NULL);
   g_object_set_data(G_OBJECT(popup), "show-timer", NULL);
+  GtkAllocation row;
+  gint origin_x, origin_y;
+  gtk_widget_get_allocation(item, &row);
+  gdk_window_get_origin(gtk_widget_get_window(item), &origin_x, &origin_y);
+  if(pointer_x < origin_x + row.x || pointer_x >= origin_x + row.x + row.width ||
+     pointer_y < origin_y + row.y || pointer_y >= origin_y + row.y + row.height)
+    return FALSE;
   gint monitor_no = gdk_screen_get_monitor_at_point(screen, pointer_x, pointer_y);
   gdk_screen_get_monitor_geometry(screen, monitor_no, &monitor);
   x = pointer_x;
@@ -1968,9 +1975,25 @@ static void queue_history_tooltip(GtkWidget *item, gpointer data)
   g_object_set_data(G_OBJECT(data), "show-timer", GUINT_TO_POINTER(timer));
 }
 
+static gboolean history_tooltip_crossing(GtkWidget *item, GdkEventCrossing *event, gpointer data)
+{
+  if(event->type == GDK_ENTER_NOTIFY)
+    queue_history_tooltip(item, data);
+  else
+    hide_history_tooltip(item, data);
+  return FALSE;
+}
+
 static void set_history_tooltip(GtkWidget *item, const gchar *text)
 {
-  gchar *preview = g_strchomp(g_strdup(text));
+  /* ponytail: 16K characters bounds preview work; saved clips remain unlimited. */
+  const gchar *end = text;
+  gint chars;
+  for(chars = 0; *end && chars < 16384; ++chars)
+    end = g_utf8_next_char(end);
+  gchar *prefix = g_strndup(text, end - text);
+  gchar *preview = g_strconcat(g_strchomp(prefix), *end ? "..." : "", NULL);
+  g_free(prefix);
   GtkWidget *popup = gtk_window_new(GTK_WINDOW_POPUP);
   GtkWidget *label = gtk_label_new(preview);
   GtkWidget *box = gtk_hbox_new(FALSE, 0);
@@ -1991,6 +2014,8 @@ static void set_history_tooltip(GtkWidget *item, const gchar *text)
   g_object_set_data(G_OBJECT(popup), "history-label", label);
   g_signal_connect(item, "select", G_CALLBACK(queue_history_tooltip), popup);
   g_signal_connect(item, "deselect", G_CALLBACK(hide_history_tooltip), popup);
+  g_signal_connect(item, "enter-notify-event", G_CALLBACK(history_tooltip_crossing), popup);
+  g_signal_connect(item, "leave-notify-event", G_CALLBACK(history_tooltip_crossing), popup);
   g_signal_connect(item, "destroy", G_CALLBACK(hide_history_tooltip), popup);
   g_signal_connect_swapped(item, "destroy", G_CALLBACK(gtk_widget_destroy), popup);
   g_free(preview);
