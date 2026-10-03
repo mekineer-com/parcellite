@@ -36,7 +36,7 @@ Path(sys.argv[1]).write_text('FULL_CLIP_START <b>literal markup</b> & "quotes"\n
                            + '\nFULL_CLIP_END\n\n  ', encoding='utf-8')
 if sys.argv[2] == 'large':
     Path(sys.argv[1]).write_text('FULL_CLIP_START\n' + 'Synthetic caf\u00e9 / \u65e5\u672c\u8a9e / \U0001f642 ' * 20
-                               + '\n' + 'Large preview line\n' * 200 + 'FULL_CLIP_END\n')
+                               + '\n' + 'Large preview line\n' * 20000 + 'FULL_CLIP_END\n')
 elif sys.argv[2] == 'short':
     Path(sys.argv[1]).write_text('Short preview\nTiny')
 PY
@@ -50,6 +50,13 @@ xclip -selection clipboard -i "$tmp/payload"
 app=$!
 sleep 1
 xdotool key alt+v
+xdotool mousemove 950 740
+sleep 0.8
+for window in $(xdotool search --onlyvisible --pid "$app"); do
+    if xprop -id "$window" _NET_WM_WINDOW_TYPE | grep -q '_NET_WM_WINDOW_TYPE_TOOLTIP'; then
+        echo "Preview appeared without hovering"; exit 1
+    fi
+done
 xdotool mousemove 80 "$cursor_y"
 sleep 0.2
 xdotool mousemove 83 "$cursor_y"
