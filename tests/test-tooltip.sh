@@ -91,10 +91,14 @@ done
 xclip -selection clipboard -o > "$tmp/after-hover"
 cmp "$tmp/payload" "$tmp/after-hover"
 python3 - "$tmp/hover.png" <<'PY'
+import importlib.util
 import sys
-from PyQt6.QtWidgets import QApplication
-app = QApplication([])
-assert app.primaryScreen().grabWindow(0).save(sys.argv[1])
+if importlib.util.find_spec('PyQt6'):
+    from PyQt6.QtWidgets import QApplication
+    app = QApplication([])
+    assert app.primaryScreen().grabWindow(0).save(sys.argv[1])
+else:
+    print('Skipping optional screenshot: PyQt6 is not installed.')
 PY
 for cycle in 1 2 3; do
     xdotool key Escape
