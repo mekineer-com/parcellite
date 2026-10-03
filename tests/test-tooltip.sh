@@ -11,7 +11,9 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 mkdir -p "$tmp/home" "$tmp/config/parcellite" "$tmp/data"
 export HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/config" XDG_DATA_HOME="$tmp/data"
-cat > "$tmp/config/parcellite/parcelliterc" <<'EOF'
+menu_y=${MENU_Y:-40}
+cursor_y=$((menu_y + 14))
+cat > "$tmp/config/parcellite/parcelliterc" <<EOF
 [rc]
 use_copy=true
 use_primary=false
@@ -21,17 +23,20 @@ item_length=50
 single_line=true
 history_pos=true
 history_x=20
-history_y=40
+history_y=$menu_y
 history_key=<Alt>V
 no_icon=true
 EOF
-python3 - "$tmp/payload" <<'PY'
+python3 - "$tmp/payload" "${PREVIEW_CASE:-normal}" <<'PY'
 from pathlib import Path
 import sys
 Path(sys.argv[1]).write_text('FULL_CLIP_START <b>literal markup</b> & "quotes"\n'
                            'Second line with a preserved newline.\n'
                            + 'A roomy preview can display the text missing from the menu. ' * 6
                            + '\nFULL_CLIP_END\n\n  ', encoding='utf-8')
+if sys.argv[2] == 'large':
+    Path(sys.argv[1]).write_text('FULL_CLIP_START\n' + 'Synthetic caf\u00e9 / \u65e5\u672c\u8a9e / \U0001f642 ' * 20
+                               + '\n' + 'Large preview line\n' * 200 + 'FULL_CLIP_END\n')
 PY
 Xvfb -displayfd 3 -screen 0 1024x768x24 -nolisten tcp 3> "$tmp/display" > "$tmp/xvfb.log" 2>&1 &
 xvfb=$!
@@ -43,14 +48,17 @@ xclip -selection clipboard -i "$tmp/payload"
 app=$!
 sleep 1
 xdotool key alt+v
-xdotool mousemove 80 54
+xdotool mousemove 80 "$cursor_y"
 sleep 0.2
+xdotool mousemove 83 "$cursor_y"
+sleep 0.15
+xdotool mousemove 80 "$cursor_y"
 for window in $(xdotool search --onlyvisible --pid "$app"); do
     if xprop -id "$window" _NET_WM_WINDOW_TYPE | grep -q '_NET_WM_WINDOW_TYPE_TOOLTIP'; then
         echo "Tooltip appeared before its 500ms delay"; exit 1
     fi
 done
-sleep 1
+sleep 0.3
 tip=''
 menu=''
 for window in $(xdotool search --onlyvisible --pid "$app"); do
@@ -64,8 +72,11 @@ test -n "$tip" || { echo "No visible tooltip; evidence: $tmp"; exit 1; }
 test -n "$menu"
 right=$(xdotool getwindowgeometry --shell "$menu" | awk -F= '/^X=/{x=$2} /^WIDTH=/{print x+$2-5}')
 xdotool getwindowgeometry --shell "$tip" > "$tmp/geometry-before"
-awk -F= '/^X=/{if ($2 != 80) exit 1} /^Y=/{if ($2 <= 54 || $2 > 110) exit 1}' "$tmp/geometry-before"
-for point in '83 54' '300 60' "$right 64" '80 54'; do
+awk -F= -v py="$cursor_y" '/^X=/{if ($2 != 80) exit 1} /^Y=/{y=$2} /^HEIGHT=/{h=$2}
+         END {if (y<=py && y+h>py) exit 1}' "$tmp/geometry-before"
+awk -F= '/^X=/{x=$2} /^Y=/{y=$2} /^WIDTH=/{w=$2} /^HEIGHT=/{h=$2}
+         END {if (x<0 || y<0 || x+w>1024 || y+h>768) exit 1}' "$tmp/geometry-before"
+for point in "83 $cursor_y" "300 $((cursor_y+6))" "$right $((cursor_y+10))" "80 $cursor_y"; do
     xdotool mousemove $point
     sleep 0.8
     xwininfo -id "$tip" | grep -q 'Map State: IsViewable'
@@ -84,7 +95,7 @@ for cycle in 1 2 3; do
     xdotool key Escape
     sleep 0.2
     xdotool key alt+v
-    xdotool mousemove 80 54
+    xdotool mousemove 80 "$cursor_y"
     sleep 1
     kill -0 "$app"
 done
