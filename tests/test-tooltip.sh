@@ -44,7 +44,13 @@ app=$!
 sleep 1
 xdotool key alt+v
 xdotool mousemove 80 54
-sleep 1.5
+sleep 0.2
+for window in $(xdotool search --onlyvisible --pid "$app"); do
+    if xprop -id "$window" _NET_WM_WINDOW_TYPE | grep -q '_NET_WM_WINDOW_TYPE_TOOLTIP'; then
+        echo "Tooltip appeared before its 500ms delay"; exit 1
+    fi
+done
+sleep 1
 tip=''
 menu=''
 for window in $(xdotool search --onlyvisible --pid "$app"); do
@@ -58,6 +64,7 @@ test -n "$tip" || { echo "No visible tooltip; evidence: $tmp"; exit 1; }
 test -n "$menu"
 right=$(xdotool getwindowgeometry --shell "$menu" | awk -F= '/^X=/{x=$2} /^WIDTH=/{print x+$2-5}')
 xdotool getwindowgeometry --shell "$tip" > "$tmp/geometry-before"
+awk -F= '/^X=/{if ($2 != 80) exit 1} /^Y=/{if ($2 <= 54 || $2 > 110) exit 1}' "$tmp/geometry-before"
 for point in '83 54' '300 60' "$right 64" '80 54'; do
     xdotool mousemove $point
     sleep 0.8
@@ -89,4 +96,4 @@ if grep -Eq 'CRITICAL|invalid.*(pointer|object)' "$tmp/app.log"; then
 fi
 xclip -selection clipboard -o > "$tmp/after-close"
 cmp "$tmp/payload" "$tmp/after-close"
-echo "PASS: native tooltip stays still within its row; clipboard unchanged. Evidence: $tmp"
+echo "PASS: delayed tooltip appears below cursor and stays still; clipboard unchanged. Evidence: $tmp"

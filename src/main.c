@@ -1863,23 +1863,21 @@ void set_menu_xy(GtkMenu *menu, gint *x, gint *y, gboolean *push, gpointer user_
 static gboolean position_history_tooltip(GtkWidget *popup, GdkEvent *event, gpointer data)
 {
   GtkWidget *item = GTK_WIDGET(data);
-  GtkWidget *menu = gtk_widget_get_parent(item);
-  GtkAllocation row, menu_size;
   GtkRequisition size;
   GdkRectangle monitor;
-  gint x, y, menu_x, menu_y;
+  gint x, y, pointer_x, pointer_y;
+  GdkDisplay *display = gtk_widget_get_display(item);
+  GdkScreen *screen;
 
-  gtk_widget_get_allocation(item, &row);
-  gtk_widget_get_allocation(menu, &menu_size);
-  gdk_window_get_origin(gtk_widget_get_window(menu), &menu_x, &menu_y);
+  /* Sample once at appearance, so movement within the row cannot move it. */
+  gdk_display_get_pointer(display, &screen, &pointer_x, &pointer_y, NULL);
   gtk_widget_size_request(popup, &size);
-  GdkScreen *screen = gtk_widget_get_screen(item);
-  gint monitor_no = gdk_screen_get_monitor_at_window(screen, gtk_widget_get_window(menu));
+  gint monitor_no = gdk_screen_get_monitor_at_point(screen, pointer_x, pointer_y);
   gdk_screen_get_monitor_geometry(screen, monitor_no, &monitor);
-  x = menu_x + menu_size.width + 1;
-  if(x + size.width > monitor.x + monitor.width)
-    x = menu_x - size.width - 1;
-  y = menu_y + row.y;
+  x = pointer_x;
+  y = pointer_y + gdk_display_get_default_cursor_size(display) + 1;
+  if(y + size.height > monitor.y + monitor.height)
+    y = pointer_y - size.height;
   x = MAX(monitor.x, MIN(x, monitor.x + monitor.width - size.width));
   y = MAX(monitor.y, MIN(y, monitor.y + monitor.height - size.height));
   gtk_window_move(GTK_WINDOW(popup), x, y);
@@ -1896,7 +1894,7 @@ static void set_history_tooltip(GtkWidget *item, const gchar *text)
   gtk_window_set_type_hint(GTK_WINDOW(popup), GDK_WINDOW_TYPE_HINT_TOOLTIP);
   gtk_window_set_accept_focus(GTK_WINDOW(popup), FALSE);
   gtk_window_set_resizable(GTK_WINDOW(popup), FALSE);
-  gtk_container_set_border_width(GTK_CONTAINER(popup), 1);
+  gtk_container_set_border_width(GTK_CONTAINER(popup), 3);
   gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
   gtk_label_set_line_wrap_mode(GTK_LABEL(label), PANGO_WRAP_WORD_CHAR);
   gtk_misc_set_alignment(GTK_MISC(label), 0, 0);
@@ -2448,6 +2446,8 @@ int main(int argc, char *argv[])
   
   /* Initiate GTK+ */
   gtk_init(&argc, &argv);
+  g_object_set(gtk_settings_get_default(), "gtk-tooltip-timeout", 500,
+               "gtk-tooltip-browse-timeout", 500, NULL);
 	/**this just maps to the static struct, prefs do not need to be loaded  */
 	pref_mapper(pref2int_map,PM_INIT); 
 	check_dirs(); /**make sure we set up default RC if it doesn't exist.  */
