@@ -1642,6 +1642,12 @@ void set_clipboard_text(struct history_info *h, GList *element)
 	/*g_printf("set_clip_text done\n");  */
 	
 	if (get_pref_int32("automatic_paste")) { /** auto paste */
+		if(!get_pref_int32("key_input") &&
+		   ((get_pref_int32("auto_mouse") && !use_primary) ||
+		    (!get_pref_int32("auto_mouse") && get_pref_int32("auto_key") && !use_copy))) {
+			g_warning("Auto-paste requires its matching clipboard selection to be enabled");
+			goto done;
+		}
 		if(get_pref_int32("auto_mouse"))
 			action=g_strdup("click --clearmodifiers 2");
 		else if(get_pref_int32("auto_key"))

@@ -22,7 +22,7 @@ fixture = r'''
 #define g_signal_emit_by_name(...) ((void)0)
 struct history_info { GList *delete_list; void *menu; };
 struct history_item { char *text; };
-static int use_copy = 0, use_primary = 0;
+static int use_copy = 1, use_primary = 1;
 static void *clipboard, *primary;
 static int mode, finished;
 static void *find_h_item(GList *a, void *b, GList *c) { return NULL; }
@@ -57,6 +57,7 @@ int main(int argc, char **argv) {
     struct history_info history = {0};
     if(!g_file_get_contents(argv[1], &item.text, NULL, NULL)) return 2;
     mode = atoi(argv[2]);
+    if(argc > 3) use_copy = use_primary = 0;
     GList *list = g_list_append(NULL, &item);
     set_clipboard_text(&history, list);
     gint64 end = g_get_monotonic_time() + 3 * G_USEC_PER_SEC;
@@ -92,6 +93,13 @@ with tempfile.TemporaryDirectory(prefix='parcellite-paste-test-') as directory:
     assert run(0, 'disabled') is None
     assert run(1, 'clipboard paste') == ['key', '--clearmodifiers', 'ctrl+v']
     assert run(2, 'primary paste') == ['click', '--clearmodifiers', '2']
+    for mode in (1, 2):
+        (root / 'args').unlink(missing_ok=True)
+        payload.write_text('must not paste stale clipboard text')
+        blocked = subprocess.run([str(root / 'fixture'), str(payload), str(mode), 'disabled'],
+                                 env=env, text=True, capture_output=True, timeout=5)
+        assert blocked.returncode == 3 and 'matching clipboard selection' in blocked.stderr
+        assert not (root / 'args').exists()
     for text in ('plain', 'He said "hello"; it\'s literal.', '--help',
                  'line one\nline two\tend', '\u00f1\u4e2d\U0001f642',
                  '$(touch SHOULD_NOT_EXIST) `echo untouched` $HOME \\'):
