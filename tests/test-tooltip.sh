@@ -67,7 +67,12 @@ for window in $(xdotool search --onlyvisible --pid "$app"); do
         echo "Tooltip appeared before its 500ms delay"; exit 1
     fi
 done
-sleep 0.3
+if test "${PREVIEW_CASE:-normal}" = large; then
+    # First-time multilingual font/layout setup can outlast the timer itself.
+    sleep 1
+else
+    sleep 0.3
+fi
 tip=''
 menu=''
 for window in $(xdotool search --onlyvisible --pid "$app"); do
